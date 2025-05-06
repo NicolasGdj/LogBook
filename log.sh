@@ -29,8 +29,8 @@ mkdir -p "$(dirname "$BOOK_FILE")"
 touch "$BOOK_FILE"
 
 if [ -z "$START_DATE" ]; then
-    LAST_DATE=$(grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z' "$BOOK_FILE" \
-        | sort | tail -n 1 | awk '{print $1}')
+    LAST_DATE=$(grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z' "$BOOK_FILE" |
+        sort | tail -n 1 | awk '{print $1}')
     if [ -z "$LAST_DATE" ]; then
         START_DATE="2000-01-01T00:00:00Z"
         echo "ℹ️  No previous date found. Using fallback: $START_DATE"
@@ -64,6 +64,8 @@ for REPO in $REPOS; do
     COMMITS=$(gh api -X GET "repos/$REPO/commits" \
         -f author="$USERNAME" \
         -f since="${START_DATE}" \
+        -f per_page=1000 \
+        --paginate \
         ${END_DATE:+-f until="${END_DATE}T23:59:59Z"} \
         --jq '.[] | "\(.commit.author.date) \(.sha)"' 2>/dev/null)
 
@@ -74,10 +76,10 @@ for REPO in $REPOS; do
 
     echo "$COMMITS" | tac | while read -r line; do
         COMMIT_DATE=$(echo "$line" | awk '{print $1}')
-        echo "$COMMIT_DATE - $DEFAULT_COMMENT" >> "$BOOK_FILE"
+        echo "$COMMIT_DATE - $DEFAULT_COMMENT" >>"$BOOK_FILE"
         echo "✔ Logged: $COMMIT_DATE"
         git add "$BOOK_FILE"
-        GIT_AUTHOR_DATE="$ISO_DATE" GIT_COMMITTER_DATE="$ISO_DATE" \
+        GIT_AUTHOR_DATE="$COMMIT_DATE" GIT_COMMITTER_DATE="$COMMIT_DATE" \
             git commit -m "$DEFAULT_COMMENT" >/dev/null
     done
 done
